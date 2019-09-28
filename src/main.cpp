@@ -27,11 +27,9 @@ int main(int argc, char** argv)
     for(int i = 0; i < img_paths.size(); i ++)
     {
         Mat tmp = imread(img_paths[i]);
-        // sfm.AddImages(tmp);
-        Ptr<xfeatures2d::SIFT> sift = xfeatures2d::SIFT::create();
-        // cvtColor(tmp, tmp, COLOR_BGR2GRAY);
-        sift->detect(tmp, keypoints_);
-        // sift->compute(img, keypoints_, descritor_);
+        // Image img(tmp);
+        sfm.AddImages(tmp);
     }
-    
+
+    sfm.StartReconstruction();
 }

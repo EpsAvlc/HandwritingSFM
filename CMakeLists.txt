@@ -9,7 +9,7 @@ include_directories(include )
 add_library(setting src/setting.cpp)
 target_link_libraries(setting ${OpenCV_LIBS})
 
-add_library(hwsfm src/hwsfm.cpp src/image.cpp)
+add_library(hwsfm src/hwsfm.cpp src/frame.cpp)
 target_link_libraries(hwsfm ${OpenCV_LIBS})
 
 add_executable(main src/main.cpp)

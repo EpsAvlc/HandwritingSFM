@@ -3,7 +3,7 @@
 data_path: /home/cm/dataset/data_qinghuamen
 image_list: - IMG_5589.jpg
             - IMG_5590.jpg
-            # - IMG_5591.jpg
+            - IMG_5591.jpg
             # - IMG_5592.jpg
             # - IMG_5593.jpg
             # - IMG_5594.jpg

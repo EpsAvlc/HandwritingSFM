@@ -10,9 +10,11 @@
 #ifndef HWSFM_H__
 #define HWSFM_H__
 #include <iostream>
+
 #include <opencv2/core/core.hpp>
 
-#include "image.h"
+
+#include "frame.h"
 
 class HWSFM
 {
@@ -21,9 +23,9 @@ public:
     void AddImages(cv::Mat& img);
     void StartReconstruction();
 private:
-    void extractFeatures();
-
-    std::vector<Image> imgs_;
+    void initScale();
+    void matchFeatures(Frame& lhs, Frame& rhs, std::vector<cv::DMatch>& good_matches);
+    std::vector<Frame> frames_;
     std::vector<std::vector<cv::KeyPoint>> features_;
     std::vector<std::vector<cv::Mat>> descriptors_;
 };
