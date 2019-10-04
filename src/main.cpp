@@ -13,7 +13,7 @@ using namespace cv;
 
 int main(int argc, char** argv)
 {
-    Setting s("./config/qinghuamen.yaml");
+    Setting s("./config/sceauxcastle.yaml");
     vector<Mat> imgs;
     vector<string> img_paths = s.imagePaths();
     if(img_paths.size() == 0)
@@ -23,11 +23,11 @@ int main(int argc, char** argv)
     }
 
     HWSFM sfm;
+    sfm.SetCameraIntrins(s.K());
     vector<KeyPoint> keypoints_;
     for(int i = 0; i < img_paths.size(); i ++)
     {
         Mat tmp = imread(img_paths[i]);
-        // Image img(tmp);
         sfm.AddImages(tmp);
     }
 

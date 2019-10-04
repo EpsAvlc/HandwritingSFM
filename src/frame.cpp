@@ -23,9 +23,5 @@ void Frame::extractFeatures(const Mat& img)
     sift->detect(img, keypoints_);
     sift->compute(img, keypoints_, descriptor_);
 
-    cout << "finish adding image" << id_ << "." << endl;
-    // Mat img_with_features;
-    // drawKeypoints(img, keypoints_, img_with_features);
-    // imshow("imgWithFeatures", img_with_features);
-    // waitKey(0);
+    cout << "[extractFeatures@Frame]: finish adding image" << id_ << "." << endl;
 }

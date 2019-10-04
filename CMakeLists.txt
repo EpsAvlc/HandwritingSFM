@@ -4,7 +4,8 @@ project(hwsfm VERSION 0.1.0)
 add_definitions(-std=c++11)
 set(OPENCV_ENABLE_NONFREE)
 find_package(OpenCV 3.4 REQUIRED)
-include_directories(include )
+
+include_directories("/usr/include/eigen3" include)
 
 add_library(setting src/setting.cpp)
 target_link_libraries(setting ${OpenCV_LIBS})

@@ -1,0 +1,12 @@
+%YAML:1.0
+
+data_path: /home/cm/dataset/SceauxCastle/images
+
+image_list: - '100_7100.JPG'
+            - '100_7101.JPG'
+            - '100_7102.JPG'
+
+fx: 2905.88
+fy: 2905.88
+cx: 1416
+cy: 1064

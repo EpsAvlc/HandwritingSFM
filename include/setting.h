@@ -13,12 +13,17 @@
 #include <iostream>
 #include <vector>
 
+// #include <Eigen/Core> 
+#include <opencv2/core/core.hpp>
+
 class Setting
 {
 public:
     Setting(const std::string& config_path);
     std::vector<std::string> imagePaths() {return image_strs_;};
+    cv::Mat& K() {return K_;};
 private:
     std::vector<std::string> image_strs_;
+    cv::Mat K_;    
 };
 #endif
