@@ -10,7 +10,7 @@ include_directories("/usr/include/eigen3" include)
 add_library(setting src/setting.cpp)
 target_link_libraries(setting ${OpenCV_LIBS})
 
-add_library(hwsfm src/hwsfm.cpp src/frame.cpp)
+add_library(hwsfm src/hwsfm.cpp src/frame.cpp src/mappoint.cpp)
 target_link_libraries(hwsfm ${OpenCV_LIBS})
 
 add_executable(main src/main.cpp)

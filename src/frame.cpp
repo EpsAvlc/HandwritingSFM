@@ -15,7 +15,7 @@
 using namespace cv;
 using namespace std;
 
-int Frame::id_ = 0;
+int Frame::id_counter_ = 0;
 
 void Frame::extractFeatures(const Mat& img)
 {
@@ -24,4 +24,18 @@ void Frame::extractFeatures(const Mat& img)
     sift->compute(img, keypoints_, descriptor_);
 
     cout << "[extractFeatures@Frame]: finish adding image" << id_ << "." << endl;
+}
+
+bool Frame::AddTriangulated(int feature_index, int mappoint_id)
+{
+    if(triangulated_.count(feature_index) == 0)
+    {
+        triangulated_[feature_index] = mappoint_id;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+    
 }

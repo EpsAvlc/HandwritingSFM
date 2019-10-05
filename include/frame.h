@@ -11,6 +11,8 @@
 #define FRAME_H__
 
 #include <iostream>
+#include <unordered_map>
+
 #include <opencv2/core/core.hpp>
 
 class Frame
@@ -30,15 +32,21 @@ public:
     void SetR(cv::Mat R) {R_ = R;};
     const cv::Mat& GetT() {return t_;};
     void SetT(cv::Mat t) {t_ = t;};
-
+    bool AddTriangulated(int feature_index, int mappoint_id);
 private:
     void extractFeatures(const cv::Mat& img);
-    static int id_;
+    static int id_counter_;
+    int id_;
     std::vector<cv::KeyPoint> keypoints_;
     cv::Mat descriptor_;
     cv::Mat img_;
     cv::Mat R_;
     cv::Mat t_;
+    /**
+     * @brief map that stores the feature index that has been triangulated.
+     * 
+     */
+    std::unordered_map<int, int> triangulated_;
 };
 
 #endif 

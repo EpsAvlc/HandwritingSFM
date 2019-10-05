@@ -57,7 +57,7 @@ private:
      * @param pixel_pt pixel point
      * @return cv::Point3f camera point with z = 1;
      */
-    cv::Point3f pixel2Camera(cv::Point2f& pixel_pt);
+    cv::Point2f pixel2Camera(cv::Point2f& pixel_pt);
 
     /**
      * @brief Reduce vector vec by status (often used in RANSAC) 

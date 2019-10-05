@@ -56,15 +56,17 @@ void HWSFM::initScale()
     reduceVector(good_matches, status);
 
     /* display matches */
-    Mat match_mat;
-    drawMatches(frames_[0].Img(), frames_[0].Keypoints(), frames_[1].Img(), frames_[1].Keypoints(), good_matches, match_mat);
-    resize(match_mat, match_mat, Size(), 0.5, 0.5);
-    imshow("matches", match_mat);
-    waitKey(0);
+    // Mat match_mat;
+    // drawMatches(frames_[0].Img(), frames_[0].Keypoints(), frames_[1].Img(), frames_[1].Keypoints(), good_matches, match_mat);
+    // resize(match_mat, match_mat, Size(), 0.5, 0.5);
+    // imshow("matches", match_mat);
+    // waitKey(0);
     /*******************/
 
     Mat R, t;
     recoverPose(essential, points_lhs, points_rhs, K_, R, t);   
+    R.convertTo(R, CV_32F);
+    t.convertTo(t, CV_32F);
 
     /* define a random scale, here we define t's norm is 5 */
     t = t*10;
@@ -73,6 +75,8 @@ void HWSFM::initScale()
     frames_[0].SetT(Mat::zeros(3, 1, CV_32F));
     frames_[1].SetR(R);
     frames_[1].SetT(t);
+
+    triangulation(0, 1, good_matches);
 }
 
 void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
@@ -105,34 +109,60 @@ void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
     // resize(match_mat, match_mat, Size(), 0.5, 0.5);
     // imshow("matches", match_mat);
     // waitKey(0);
-
-    //TODO: triangulation
 }
 
 void HWSFM::triangulation(int l_index, int r_index, const vector<DMatch>& good_matches)
 {
-    Mat lhs_proj_mat, rhs_proj_mat;
-    // lhs_proj_mat = 
+    const Mat& lhs_R = frames_[l_index].GetR();
+    const Mat& lhs_t = frames_[l_index].GetT();
+    Mat lhs_proj_mat = (Mat_<float>(3, 4) <<
+        lhs_R.at<float>(0, 0), lhs_R.at<float>(0, 1), lhs_R.at<float>(0, 2), lhs_t.at<float>(0, 0),
+        lhs_R.at<float>(1, 0), lhs_R.at<float>(1, 1), lhs_R.at<float>(1, 2), lhs_t.at<float>(1, 0),
+        lhs_R.at<float>(2, 0), lhs_R.at<float>(2, 1), lhs_R.at<float>(2, 2), lhs_t.at<float>(2, 0));
+
+    const Mat& rhs_R = frames_[r_index].GetR();
+    const Mat& rhs_t = frames_[r_index].GetT();
+    Mat rhs_proj_mat = (Mat_<float>(3, 4) <<
+        rhs_R.at<float>(0, 0), rhs_R.at<float>(0, 1), rhs_R.at<float>(0, 2), rhs_t.at<float>(0, 0),
+        rhs_R.at<float>(1, 0), rhs_R.at<float>(1, 1), rhs_R.at<float>(1, 2), rhs_t.at<float>(1, 0),
+        rhs_R.at<float>(2, 0), rhs_R.at<float>(2, 1), rhs_R.at<float>(2, 2), rhs_t.at<float>(2, 0));
+    
+    vector<Point2f> lhs_cam_pts, rhs_cam_pts;
+    for(int i = 0; i < good_matches.size(); i++)
+    {
+        lhs_cam_pts.push_back(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt);
+        rhs_cam_pts.push_back(frames_[r_index].Keypoints()[good_matches[i].trainIdx].pt);
+    }
+
+    Mat pts4d;
+    triangulatePoints(lhs_proj_mat, rhs_proj_mat, lhs_cam_pts, rhs_cam_pts, pts4d);
+    for(int i = 0; i < pts4d.cols; i++)
+    {
+        Mat pt = pts4d.col(i);
+        pt /= pt.at<float>(3, 0);
+        MapPoint mpt(pt.at<float>(0, 0), pt.at<float>(1, 0), pt.at<float>(2, 0));
+
+        mpt.AddObserver(l_index, good_matches[i].queryIdx);
+        mpt.AddObserver(r_index, good_matches[i].trainIdx);
+
+        frames_[l_index].AddTriangulated(good_matches[i].queryIdx, mpt.Id());
+        frames_[r_index].AddTriangulated(good_matches[i].trainIdx, mpt.Id());
+
+        mappoints_.push_back(mpt);
+    }
 }
 
-Point3f HWSFM::pixel2Camera(Point2f& pixel_pt)
+Point2f HWSFM::pixel2Camera(Point2f& pixel_pt)
 {
     if(K_.at<float>(0, 0) < 1e-3)
     {   
         cerr << "[pixel2Camera@HWSFM]: You need init camera intrins first." << endl;
-        return Point3f(-1, -1, -1);
+        return Point2f(-1, -1);
     }
 
-    Mat homo_pixel_pt(3, 1, CV_32FC1, Scalar(0));
-    homo_pixel_pt.at<float>(0, 0) = pixel_pt.x;
-    homo_pixel_pt.at<float>(1, 0) = pixel_pt.y;
-    homo_pixel_pt.at<float>(2, 0) = 1;
-
-    Mat camera_pt_mat = K_.inv() * homo_pixel_pt;
-    Point3f camera_pt;
-    camera_pt.x = camera_pt_mat.at<float>(0, 0) / camera_pt_mat.at<float>(2, 0);
-    camera_pt.y = camera_pt_mat.at<float>(1, 0) / camera_pt_mat.at<float>(2, 0);
-    camera_pt.z = 1;
-
-    return camera_pt;
+    return Point2d
+        (
+            ( pixel_pt.x - K_.at<float> ( 0,2 ) ) / K_.at<float> ( 0,0 ),
+            ( pixel_pt.y - K_.at<float> ( 1,2 ) ) / K_.at<float> ( 1,1 )
+        );
 }

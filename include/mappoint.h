@@ -11,20 +11,30 @@
 #define MAPPOINT_H__
 
 #include <iostream>
+#include <unordered_map>
 
 class MapPoint
 {
 public:
-    MapPoint(){};
-    MapPoint(double x, double y, double z) : x_(x), y_(y), z_(z){};
-    double& x(){return x_;};
-    double& y(){return y_;};
-    double& z(){return z_;};
+    MapPoint(){id_ = id_counter_; id_counter_ ++; };
+    MapPoint(double x, double y, double z) : x_(x), y_(y), z_(z)
+    {
+        id_ = id_counter_; 
+        id_counter_++;
+    };
+    int Id() {return id_;};
+    bool AddObserver(int frame_index, int feature_index);
+    float& x(){return x_;};
+    float& y(){return y_;};
+    float& z(){return z_;};
 private:
-    double x_ = 0;
-    double y_ = 0;
-    double z_ = 0;
-    // std::vector<MapPoint>
+    float x_ = 0;
+    float y_ = 0;
+    float z_ = 0;
+        
+    static int id_counter_;
+    int id_;
+    std::unordered_map<int, int> observers_;
 };
 
 #endif
