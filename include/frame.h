@@ -20,8 +20,8 @@ class Frame
 public:
     Frame(const cv::Mat& img) 
     {
-        id_counter_ ++;
         id_ = id_counter_;
+        id_counter_ ++;
         img_ = img.clone();
         extractFeatures(img);
     }
@@ -33,7 +33,15 @@ public:
     void SetR(cv::Mat R) {R_ = R;};
     const cv::Mat& GetT() {return t_;};
     void SetT(cv::Mat t) {t_ = t;};
+
     bool AddTriangulated(int feature_index, int mappoint_id);
+    /**
+     * @brief Get the Triangulated object
+     * 
+     * @param feature_index 
+     * @return int if exit, return mappoint's id. Else return -1.
+     */
+    int GetTriangulated(int feature_index);
 private:
     void extractFeatures(const cv::Mat& img);
     static int id_counter_;

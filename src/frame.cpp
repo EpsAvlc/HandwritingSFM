@@ -11,6 +11,7 @@
 
 #include <opencv2/xfeatures2d/nonfree.hpp> 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace cv;
 using namespace std;
@@ -19,9 +20,21 @@ int Frame::id_counter_ = 0;
 
 void Frame::extractFeatures(const Mat& img)
 {
+    vector<Mat> bgr;
+    split(img, bgr);
+    
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+    vector<Mat> bgr_eq(3);
+    clahe->apply(bgr[0], bgr_eq[0]);
+    clahe->apply(bgr[1], bgr_eq[1]);
+    clahe->apply(bgr[2], bgr_eq[2]);
+
+    Mat img_eq;
+    merge(bgr_eq, img_eq);
+
     Ptr<xfeatures2d::SIFT> sift = xfeatures2d::SIFT::create();
-    sift->detect(img, keypoints_);
-    sift->compute(img, keypoints_, descriptor_);
+    sift->detect(img_eq, keypoints_);
+    sift->compute(img_eq, keypoints_, descriptor_);
 }
 
 bool Frame::AddTriangulated(int feature_index, int mappoint_id)
@@ -34,6 +47,18 @@ bool Frame::AddTriangulated(int feature_index, int mappoint_id)
     else
     {
         return false;
+    }
+}
+
+int Frame::GetTriangulated(int feature_index)
+{
+    if(triangulated_.count(feature_index) == 0)
+    {
+        return -1;
+    }
+    else
+    {
+        return triangulated_[feature_index];
     }
     
 }

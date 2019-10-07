@@ -44,6 +44,25 @@ void HWSFM::StartReconstruction()
     }
 
     initScale();
+    viewer_.SetUpdate();
+
+    for(int i = 2; i < frames_.size(); i++)
+    {
+        solvePnPAndTriangulation(frames_[0], frames_[i]);
+        viewer_.SetUpdate();
+    }
+
+    for(int i = 1; i < frames_.size()-1; i++)
+    {
+        for(int j = i+1; j < frames_.size(); j++)
+        {
+            vector<DMatch> matches;
+            matchFeatures(frames_[i], frames_[j], matches);
+            rejectWithF(frames_[i], frames_[j], matches);
+            triangulation(frames_[i], frames_[j], matches);
+            viewer_.SetUpdate();
+        }
+    }
 }
 
 void HWSFM::initScale()
@@ -84,7 +103,86 @@ void HWSFM::initScale()
     frames_[1].SetR(R);
     frames_[1].SetT(t);
 
-    triangulation(0, 1, good_matches);
+    triangulation(frames_[0], frames_[1], good_matches);
+}
+
+void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
+{
+    vector<DMatch> matches;
+    matchFeatures(lhs, rhs, matches);
+    rejectWithF(lhs, rhs, matches);
+
+    /* display matches */
+    // Mat match_mat;
+    // drawMatches(lhs.Img(), lhs.Keypoints(), rhs.Img(), rhs.Keypoints(), matches, match_mat, Scalar::all(-1), Scalar::all(-1), vector<char>(),  DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+    // resize(match_mat, match_mat, Size(), 0.5, 0.5);
+    // imshow("matches", match_mat);
+    // waitKey(0);
+    /*******************/
+
+    /* start solve pnp */
+    vector<Point3f> pts_3d;
+    vector<Point2f> pts_2d;
+    for(int i = 0; i < matches.size(); i++)
+    {
+        int mptId = lhs.GetTriangulated(matches[i].queryIdx);
+        if( mptId != -1)
+        {
+            /* validation */
+            // Mat pt3d(3, 1, CV_32FC1);
+            // pt3d.at<float>(0, 0) = mappoints_[mptId].x();
+            // pt3d.at<float>(1, 0) = mappoints_[mptId].y();
+            // pt3d.at<float>(2, 0) =  mappoints_[mptId].z();
+
+            // Mat reprojected = K_*(lhs.GetR() * pt3d + lhs.GetT());
+            // reprojected /= reprojected.at<float>(2, 0); 
+            // cout << "original : " << lhs.Keypoints()[matches[i].queryIdx].pt << endl;
+            // cout << "reprojected : " << reprojected << endl;
+            /**************/
+            pts_3d.push_back(Point3f(mappoints_[mptId].x(), mappoints_[mptId].y(), mappoints_[mptId].z()));
+            pts_2d.push_back(rhs.Keypoints()[matches[i].trainIdx].pt);
+        }
+    }
+    if(pts_3d.size() < 8)
+    {
+        cerr << "[solvePnpAndTriangulation@HWSFM]: too few point pairs betwean frame " << lhs.Id() << " and frame " << rhs.Id() << ", the pairs are " << pts_3d.size() << endl; 
+    }
+    Mat rvec, t;
+    // solvePnP(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, SOLVEPNP_DLS);
+    // solvePnP(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, true, SOLVEPNP_ITERATIVE);
+    solvePnPRansac(pts_3d, pts_2d, K_, cv::noArray(), rvec, t);
+    Mat R;
+    Rodrigues(rvec, R);
+    R.convertTo(R, CV_32F);
+    t.convertTo(t, CV_32F);
+    rhs.SetR(R);
+    rhs.SetT(t);
+
+    // cout << rhs.GetR() << endl;
+    // cout << rhs.GetT() << endl << endl;
+
+    // cout << R.t() << endl;
+    // cout << t << endl;
+    // cout << R * R.t() << endl;
+
+    /* validation */
+    // vector<Point2f> proj_points;
+    // projectPoints(pts_3d, rvec, t, K_, noArray(), proj_points);
+    // for(int i = 0; i < pts_3d.size(); i++)
+    // {
+    //     // Mat pt3d(3, 1, CV_32FC1);
+    //     // pt3d.at<float>(0, 0) = pts_3d[i].x;
+    //     // pt3d.at<float>(1, 0) = pts_3d[i].y;
+    //     // pt3d.at<float>(2, 0) = pts_3d[i].z;
+
+    //     // Mat reprojected = K_*(rhs.GetR() * pt3d + rhs.GetT());
+    //     // reprojected /= reprojected.at<float>(2, 0); 
+    //     cout << "original : " << pts_2d[i] << endl;
+    //     cout << "reprojected : " << proj_points[i] << endl;
+    // }
+    /**************/
+
+    triangulation(lhs, rhs, matches);
 }
 
 void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
@@ -119,63 +217,98 @@ void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
     // waitKey(0);
 }
 
-void HWSFM::triangulation(int l_index, int r_index, const vector<DMatch>& good_matches)
+void HWSFM::rejectWithF(Frame& lhs, Frame& rhs, vector<cv::DMatch>& matches)
 {
-    const Mat& lhs_R = frames_[l_index].GetR();
-    const Mat& lhs_t = frames_[l_index].GetT();
+    vector<Point2f> pts_lhs, pts_rhs;
+    for(int i = 0; i < matches.size(); i++)
+    {
+        pts_lhs.push_back(lhs.Keypoints()[matches[i].queryIdx].pt);
+        pts_rhs.push_back(rhs.Keypoints()[matches[i].trainIdx].pt);
+    }
+
+    vector<uchar> status;
+    Mat F = findFundamentalMat(pts_lhs, pts_rhs, RANSAC, 3.0, 0.999, status);
+    reduceVector(matches, status);
+}
+
+void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_matches)
+{
+    lock_guard<mutex> lock(viewer_mutex_);
+    const Mat& lhs_R = lhs.GetR();
+    const Mat& lhs_t = lhs.GetT();
     Mat lhs_proj_mat = (Mat_<float>(3, 4) <<
         lhs_R.at<float>(0, 0), lhs_R.at<float>(0, 1), lhs_R.at<float>(0, 2), lhs_t.at<float>(0, 0),
         lhs_R.at<float>(1, 0), lhs_R.at<float>(1, 1), lhs_R.at<float>(1, 2), lhs_t.at<float>(1, 0),
         lhs_R.at<float>(2, 0), lhs_R.at<float>(2, 1), lhs_R.at<float>(2, 2), lhs_t.at<float>(2, 0));
 
-    const Mat& rhs_R = frames_[r_index].GetR();
-    const Mat& rhs_t = frames_[r_index].GetT();
+    const Mat& rhs_R = rhs.GetR();
+    const Mat& rhs_t = rhs.GetT();
     Mat rhs_proj_mat = (Mat_<float>(3, 4) <<
         rhs_R.at<float>(0, 0), rhs_R.at<float>(0, 1), rhs_R.at<float>(0, 2), rhs_t.at<float>(0, 0),
         rhs_R.at<float>(1, 0), rhs_R.at<float>(1, 1), rhs_R.at<float>(1, 2), rhs_t.at<float>(1, 0),
         rhs_R.at<float>(2, 0), rhs_R.at<float>(2, 1), rhs_R.at<float>(2, 2), rhs_t.at<float>(2, 0));
 
     vector<Point2f> lhs_cam_pts, rhs_cam_pts;
+    // vector<Point2f> origin_pts;
     for(int i = 0; i < good_matches.size(); i++)
     {
-        lhs_cam_pts.push_back(pixel2Camera(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt));
-        rhs_cam_pts.push_back(pixel2Camera(frames_[r_index].Keypoints()[good_matches[i].trainIdx].pt));
+        int lhs_index = good_matches[i].queryIdx;
+        int rhs_index = good_matches[i].trainIdx;
+        /** If this point has been triangulated. */
+        if(int mptId = lhs.GetTriangulated(lhs_index) != -1)
+        {
+            rhs.AddTriangulated(rhs_index, mptId);
+            continue;
+        }
+        else if(int mptId = rhs.GetTriangulated(rhs_index) != -1)
+        {
+            lhs.AddTriangulated(lhs_index, mptId);
+            continue;
+        }
+        lhs_cam_pts.push_back(pixel2Camera(lhs.Keypoints()[lhs_index].pt));
+        rhs_cam_pts.push_back(pixel2Camera(rhs.Keypoints()[rhs_index].pt));
+        // origin_pts.push_back(lhs.Keypoints()[lhs_index].pt);
     }
 
     Mat pts4d;
     triangulatePoints(lhs_proj_mat, rhs_proj_mat, lhs_cam_pts, rhs_cam_pts, pts4d);
+    int tri_count = 0;
     for(int i = 0; i < pts4d.cols; i++)
     {
         Mat pt = pts4d.col(i);
         pt /= pt.at<float>(3, 0);
         MapPoint mpt(pt.at<float>(0, 0), pt.at<float>(1, 0), pt.at<float>(2, 0));
 
-        Scalar mpt_color = frames_[l_index].Img().at<Vec3b>(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt);
-        mpt.SetColor(mpt_color);
-        mpt.AddObserver(l_index, good_matches[i].queryIdx);
-        mpt.AddObserver(r_index, good_matches[i].trainIdx);
-
-        frames_[l_index].AddTriangulated(good_matches[i].queryIdx, mpt.Id());
-        frames_[r_index].AddTriangulated(good_matches[i].trainIdx, mpt.Id());
-
-        mappoints_.push_back(mpt); 
-
-        // cout << mpt.x() << " " << mpt.y() << " " << mpt.z() << endl;
         /********** validation **********/
-        // Mat pt3d(3, 1, CV_32FC1);
-        // pt3d.at<float>(0, 0) = pt.at<float>(0, 0);
-        // pt3d.at<float>(1, 0) = pt.at<float>(1, 0);
-        // pt3d.at<float>(2, 0) = pt.at<float>(2, 0);
+        Mat pt3d(3, 1, CV_32FC1);
+        pt3d.at<float>(0, 0) = pt.at<float>(0, 0);
+        pt3d.at<float>(1, 0) = pt.at<float>(1, 0);
+        pt3d.at<float>(2, 0) = pt.at<float>(2, 0);
 
-        // Mat reprojected = (frames_[l_index].GetR() * pt3d + frames_[l_index].GetT());
-        // reprojected /= reprojected.at<float>(2, 0); 
+        Mat reprojected = K_ *(lhs.GetR() * pt3d + lhs.GetT());
+        reprojected /= reprojected.at<float>(2, 0); 
 
-        // cout << "left point original: " << frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt << endl;
-        // // cout << "left point orignal: " << lhs_cam_pts[i] << endl;
-        // cout << "left point reporjected: " << K_* reprojected << endl; 
+        Point2f pt2d = camera2Pixel(lhs_cam_pts[i]);
+        // cout << reprojected << endl;
+        // cout << pt2d << endl;
+
+        float err = fabs(reprojected.at<float>(0, 0) - pt2d.x) + fabs(reprojected.at<float>(1, 0) - pt2d.y);
+        if(err > 100)
+            continue;
         /****************************** */
 
+        Scalar mpt_color =lhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
+        mpt.SetColor(mpt_color);
+        mpt.AddObserver(lhs.Id(), good_matches[i].queryIdx);
+        mpt.AddObserver(rhs.Id(), good_matches[i].trainIdx);
+
+        lhs.AddTriangulated(good_matches[i].queryIdx, mpt.Id());
+        rhs.AddTriangulated(good_matches[i].trainIdx, mpt.Id());
+
+        mappoints_.push_back(mpt); 
+        tri_count ++;
     }
+    cout << "[triangulation@HWSFM]: triangulate " << tri_count << " points between frame " << lhs.Id() << " and " << rhs.Id() << endl;
 }
 
 Point2f HWSFM::pixel2Camera(const Point2f& pixel_pt)
@@ -186,9 +319,23 @@ Point2f HWSFM::pixel2Camera(const Point2f& pixel_pt)
         return Point2f(-1, -1);
     }
 
-    return Point2d
+    return Point2f
         (
             ( pixel_pt.x - K_.at<float> ( 0,2 ) ) / K_.at<float> ( 0,0 ),
             ( pixel_pt.y - K_.at<float> ( 1,2 ) ) / K_.at<float> ( 1,1 )
         );
+}
+
+Point2f HWSFM::camera2Pixel(const cv::Point2f& cam_pt)
+{
+    if(K_.at<float>(0, 0) < 1e-3)
+    {   
+        cerr << "[camera2Pixel@HWSFM]: You need init camera intrins first." << endl;
+        return Point2f(-1, -1);
+    }
+    return Point2f
+    (
+        cam_pt.x * K_.at<float> ( 0,0 ) + K_.at<float>(0, 2),
+        cam_pt.y * K_.at<float> ( 1,1 ) + K_.at<float>(1, 2)
+    );
 }

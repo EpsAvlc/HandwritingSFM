@@ -39,12 +39,14 @@ void Viewer::Run()
     while( !pangolin::ShouldQuit() )
     {
         // Clear the window by current color.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
         d_cam.Activate(s_cam);
 
-        // drawMappoints();
-
-        drawMappoints();
+        if(update_)
+        {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            drawMappoints();
+        }
 
         pangolin::FinishFrame();
         usleep(30000);
@@ -53,6 +55,7 @@ void Viewer::Run()
 
 void Viewer::drawMappoints()
 {
+    lock_guard<mutex> lock(sfm_->viewer_mutex_);
     if(sfm_ == nullptr)
     {
         cerr << "[drawMappoints@Viewer]: Your sfm class is a nullptr." << endl;
@@ -64,7 +67,7 @@ void Viewer::drawMappoints()
 
     // cout << mps.size() << endl;
     // set points' radius.
-    glPointSize(1);
+    glPointSize(2);
     glBegin(GL_POINTS);
     // set points' color
     glColor3f(1.0, 0.0, 0.0);

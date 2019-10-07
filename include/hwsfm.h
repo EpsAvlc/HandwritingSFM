@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <thread>
+#include <mutex>
 
 #include <opencv2/core/core.hpp>
 
@@ -27,6 +28,7 @@ public:
     HWSFM(Setting& s);
     const std::vector<MapPoint> GetMappoints() {return mappoints_;};
     void StartReconstruction();
+    // void SetViewerBusy(bool isbusy);
 private:
 
     void addImages(cv::Mat& img);
@@ -38,6 +40,15 @@ private:
     void initScale();
 
     /**
+     * @brief When inited scale, use pnp to solve R, t and triangulate
+     *          points. 
+     * 
+     * @param lhs Frame left hand side that must have 
+     *          triangulated points.
+     * @param rhs Frame right hand side.
+     */
+    void solvePnPAndTriangulation(Frame& lhs, Frame& rhs);
+    /**
      * @brief Use flannbasedMatcher to match keypoins
      * 
      * @param lhs Frame left hand side.
@@ -47,13 +58,21 @@ private:
     void matchFeatures(Frame& lhs, Frame& rhs, std::vector<cv::DMatch>& good_matches);
 
     /**
+     * @brief use ransac method of find fundamental to remove bad matches;
+     * 
+     * @param lhs Frame left hand side .
+     * @param rhs Frame right hand side.
+     * @param matches initial matches;
+     */
+    void rejectWithF(Frame& lhs, Frame& rhs, std::vector<cv::DMatch>& matches);
+    /**
      * @brief Triangulate points got from matching features.
      * 
-     * @param l_index lhs frames index in class parameters frames_; 
-     * @param r_index lhs frames index in class parameters frames_;
+     * @param lhs lhs frames; 
+     * @param rhs rhs frames;
      * @param good_matches vector to store good matches. 
      */
-    void triangulation(int l_index, int r_index, const std::vector<cv::DMatch>& good_matches);
+    void triangulation(Frame& lhs, Frame& rhs, const std::vector<cv::DMatch>& good_matches);
 
     /**
      * @brief Convert pixel point into camera coordinate point.
@@ -63,6 +82,7 @@ private:
      */
     cv::Point2f pixel2Camera(const cv::Point2f& pixel_pt);
 
+    cv::Point2f camera2Pixel(const cv::Point2f& cam_pt);
     /**
      * @brief Reduce vector vec by status (often used in RANSAC) 
      * 
@@ -94,6 +114,7 @@ private:
     Viewer viewer_;    
     Setting& setting_;
     std::thread viewer_thread_;
+    std::mutex viewer_mutex_;
 };
 
 #endif
