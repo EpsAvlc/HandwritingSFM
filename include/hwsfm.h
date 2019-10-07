@@ -28,6 +28,7 @@ public:
     HWSFM(Setting& s);
     const std::vector<MapPoint> GetMappoints() {return mappoints_;};
     void StartReconstruction();
+    cv::Mat GetCurMatch(){return cur_match_img_;};
     // void SetViewerBusy(bool isbusy);
 private:
 
@@ -115,6 +116,7 @@ private:
     Setting& setting_;
     std::thread viewer_thread_;
     std::mutex viewer_mutex_;
+    cv::Mat cur_match_img_;
 };
 
 #endif

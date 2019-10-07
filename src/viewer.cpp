@@ -15,6 +15,7 @@
 
 #include <pangolin/pangolin.h>
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 using namespace std;
 using namespace cv;
@@ -49,7 +50,14 @@ void Viewer::Run()
         }
 
         pangolin::FinishFrame();
-        usleep(30000);
+        // usleep(30000);
+        Mat cur_match_img = sfm_->GetCurMatch();
+        if(!cur_match_img.empty())
+        {
+            lock_guard<mutex> lock(sfm_->viewer_mutex_);
+            imshow("cur_match", cur_match_img);
+        }
+        waitKey(30);
     }
 }
 
@@ -67,7 +75,7 @@ void Viewer::drawMappoints()
 
     // cout << mps.size() << endl;
     // set points' radius.
-    glPointSize(2);
+    glPointSize(3);
     glBegin(GL_POINTS);
     // set points' color
     glColor3f(1.0, 0.0, 0.0);

@@ -20,17 +20,19 @@ int Frame::id_counter_ = 0;
 
 void Frame::extractFeatures(const Mat& img)
 {
-    vector<Mat> bgr;
-    split(img, bgr);
+    // vector<Mat> bgr;
+    // split(img, bgr);
     
-    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
-    vector<Mat> bgr_eq(3);
-    clahe->apply(bgr[0], bgr_eq[0]);
-    clahe->apply(bgr[1], bgr_eq[1]);
-    clahe->apply(bgr[2], bgr_eq[2]);
+    // cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+    // vector<Mat> bgr_eq(3);
+    // clahe->apply(bgr[0], bgr_eq[0]);
+    // clahe->apply(bgr[1], bgr_eq[1]);
+    // clahe->apply(bgr[2], bgr_eq[2]);
 
-    Mat img_eq;
-    merge(bgr_eq, img_eq);
+    // Mat img_eq;
+    // merge(bgr_eq, img_eq);
+
+    Mat img_eq = img.clone();
 
     Ptr<xfeatures2d::SIFT> sift = xfeatures2d::SIFT::create();
     sift->detect(img_eq, keypoints_);

@@ -51,6 +51,7 @@ private:
     cv::Mat img_;
     cv::Mat R_;
     cv::Mat t_;
+    
     /**
      * @brief map that stores the feature index that has been triangulated.
      * 
