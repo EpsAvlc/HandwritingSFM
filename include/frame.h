@@ -20,7 +20,8 @@ class Frame
 public:
     Frame(const cv::Mat& img) 
     {
-        id_ ++;
+        id_counter_ ++;
+        id_ = id_counter_;
         img_ = img.clone();
         extractFeatures(img);
     }

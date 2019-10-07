@@ -17,6 +17,14 @@
 using namespace std;
 using namespace cv;
 
+HWSFM::HWSFM()
+{
+    K_ = Mat::zeros(3, 3, CV_32F);
+    viewer_.SetSFM(this);
+    // viewer_thread_ = thread(&Viewer::Run, &viewer_);
+
+}
+
 void HWSFM::AddImages(Mat& img)
 {
     Frame cur(img);
@@ -57,7 +65,7 @@ void HWSFM::initScale()
 
     /* display matches */
     // Mat match_mat;
-    // drawMatches(frames_[0].Img(), frames_[0].Keypoints(), frames_[1].Img(), frames_[1].Keypoints(), good_matches, match_mat);
+    // drawMatches(frames_[0].Img(), frames_[0].Keypoints(), frames_[1].Img(), frames_[1].Keypoints(), good_matches, match_mat, Scalar::all(-1), Scalar::all(-1), vector<char>(),  DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
     // resize(match_mat, match_mat, Size(), 0.5, 0.5);
     // imshow("matches", match_mat);
     // waitKey(0);
@@ -69,7 +77,7 @@ void HWSFM::initScale()
     t.convertTo(t, CV_32F);
 
     /* define a random scale, here we define t's norm is 5 */
-    t = t*10;
+    // t = t*5;
     /* define first frame as orignal position. */
     frames_[0].SetR(Mat::eye(3, 3, CV_32F));
     frames_[0].SetT(Mat::zeros(3, 1, CV_32F));
@@ -97,7 +105,7 @@ void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
 
     for(int i = 0; i < matches.size(); i++)
     {
-        if(matches[i].distance <= 2*min_dist)
+        if(matches[i].distance <= 4*min_dist)
         {
             good_matches.push_back(matches[i]);
         }
@@ -126,12 +134,12 @@ void HWSFM::triangulation(int l_index, int r_index, const vector<DMatch>& good_m
         rhs_R.at<float>(0, 0), rhs_R.at<float>(0, 1), rhs_R.at<float>(0, 2), rhs_t.at<float>(0, 0),
         rhs_R.at<float>(1, 0), rhs_R.at<float>(1, 1), rhs_R.at<float>(1, 2), rhs_t.at<float>(1, 0),
         rhs_R.at<float>(2, 0), rhs_R.at<float>(2, 1), rhs_R.at<float>(2, 2), rhs_t.at<float>(2, 0));
-    
+
     vector<Point2f> lhs_cam_pts, rhs_cam_pts;
     for(int i = 0; i < good_matches.size(); i++)
     {
-        lhs_cam_pts.push_back(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt);
-        rhs_cam_pts.push_back(frames_[r_index].Keypoints()[good_matches[i].trainIdx].pt);
+        lhs_cam_pts.push_back(pixel2Camera(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt));
+        rhs_cam_pts.push_back(pixel2Camera(frames_[r_index].Keypoints()[good_matches[i].trainIdx].pt));
     }
 
     Mat pts4d;
@@ -148,11 +156,25 @@ void HWSFM::triangulation(int l_index, int r_index, const vector<DMatch>& good_m
         frames_[l_index].AddTriangulated(good_matches[i].queryIdx, mpt.Id());
         frames_[r_index].AddTriangulated(good_matches[i].trainIdx, mpt.Id());
 
-        mappoints_.push_back(mpt);
+        cout << mpt.x() << " " << mpt.y() << " " << mpt.z() << endl;
+        /********** validation **********/
+        // Mat pt3d(3, 1, CV_32FC1);
+        // pt3d.at<float>(0, 0) = pt.at<float>(0, 0);
+        // pt3d.at<float>(1, 0) = pt.at<float>(1, 0);
+        // pt3d.at<float>(2, 0) = pt.at<float>(2, 0);
+
+        // Mat reprojected = (frames_[l_index].GetR() * pt3d + frames_[l_index].GetT());
+        // reprojected /= reprojected.at<float>(2, 0); 
+
+        // cout << "left point original: " << frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt << endl;
+        // // cout << "left point orignal: " << lhs_cam_pts[i] << endl;
+        // cout << "left point reporjected: " << K_* reprojected << endl; 
+        /****************************** */
+
     }
 }
 
-Point2f HWSFM::pixel2Camera(Point2f& pixel_pt)
+Point2f HWSFM::pixel2Camera(const Point2f& pixel_pt)
 {
     if(K_.at<float>(0, 0) < 1e-3)
     {   

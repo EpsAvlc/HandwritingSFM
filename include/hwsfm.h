@@ -11,19 +11,22 @@
 #define HWSFM_H__
 
 #include <iostream>
+#include <thread>
 
 #include <opencv2/core/core.hpp>
 
 #include "frame.h"
 #include "mappoint.h"
+#include "viewer.h"
 
 class HWSFM
 {
 public:
-    HWSFM(){ K_ = cv::Mat(3, 3, CV_32FC1, cv::Scalar(0)); };
+    HWSFM();
 
     void AddImages(cv::Mat& img);
     void SetCameraIntrins(cv::Mat& K);
+    const std::vector<MapPoint> GetMappoints() {return mappoints_;};
     void StartReconstruction();
 private:
 
@@ -57,7 +60,7 @@ private:
      * @param pixel_pt pixel point
      * @return cv::Point3f camera point with z = 1;
      */
-    cv::Point2f pixel2Camera(cv::Point2f& pixel_pt);
+    cv::Point2f pixel2Camera(const cv::Point2f& pixel_pt);
 
     /**
      * @brief Reduce vector vec by status (often used in RANSAC) 
@@ -87,6 +90,8 @@ private:
     std::vector<std::vector<cv::KeyPoint>> features_;
     std::vector<std::vector<cv::Mat>> descriptors_;
     std::vector<MapPoint> mappoints_;
+    Viewer viewer_;    
+    std::thread viewer_thread_;
 };
 
 #endif

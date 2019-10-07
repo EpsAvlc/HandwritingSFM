@@ -32,4 +32,5 @@ int main(int argc, char** argv)
     }
 
     sfm.StartReconstruction();
+    while(1);
 }

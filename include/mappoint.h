@@ -13,6 +13,8 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <opencv2/core/core.hpp>
+
 class MapPoint
 {
 public:
@@ -27,6 +29,7 @@ public:
     float& x(){return x_;};
     float& y(){return y_;};
     float& z(){return z_;};
+    cv::Point3f GetWorldPos() const { return cv::Point3f(x_, y_, z_);};
 private:
     float x_ = 0;
     float y_ = 0;
