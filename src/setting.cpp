@@ -25,6 +25,7 @@ Setting::Setting(const string& config_path)
     for(int i = 0; i < imgs_path.size(); i++)
     {
         image_strs_.push_back(data_path + "/" + imgs_path[i]);
+        // cout << image_strs_[i] << endl;
     }
     float fx, fy, cx, cy;
     fs["fx"] >> fx;
@@ -38,8 +39,17 @@ Setting::Setting(const string& config_path)
     K_.at<float>(1, 2) = cy;
     K_.at<float>(2, 2) = 1;
 
+    fs["ViewerpointX"] >> viewer_point_x_;
+    fs["ViewerpointY"] >> viewer_point_y_;
+    fs["ViewerpointZ"] >> viewer_point_z_;
+    fs["ViewerpointF"] >> viewer_point_f_;
+
     cout << "----------SETTING INFORMATION----------" << endl;
     cout << "Dataset path : " << data_path << endl;    
     cout << "Camera intrins : " << endl << K_ << endl;
+    cout << "Viewerpoint x: " << viewer_point_x_ << endl;
+    cout << "Viewerpoint y: " << viewer_point_y_ << endl;
+    cout << "Viewerpoint z: " << viewer_point_z_ << endl;
+    cout << "Viewerpoint f: " << viewer_point_f_ << endl;
     cout << "--------------------------------------" << endl;
 }

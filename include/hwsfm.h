@@ -18,17 +18,18 @@
 #include "frame.h"
 #include "mappoint.h"
 #include "viewer.h"
+#include "setting.h"
 
 class HWSFM
 {
 public:
-    HWSFM();
-
-    void AddImages(cv::Mat& img);
-    void SetCameraIntrins(cv::Mat& K);
+    friend class Viewer;
+    HWSFM(Setting& s);
     const std::vector<MapPoint> GetMappoints() {return mappoints_;};
     void StartReconstruction();
 private:
+
+    void addImages(cv::Mat& img);
 
     /**
      * @brief Use first two images to init scale.
@@ -91,6 +92,7 @@ private:
     std::vector<std::vector<cv::Mat>> descriptors_;
     std::vector<MapPoint> mappoints_;
     Viewer viewer_;    
+    Setting& setting_;
     std::thread viewer_thread_;
 };
 

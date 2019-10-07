@@ -10,12 +10,13 @@
 #ifndef VIEWER_H__
 #define VIEWER_H__
 
+class Setting;
 class HWSFM;
 
 class Viewer
 {
 public:
-    Viewer() {};
+    Viewer(Setting& s) : setting_(s){};
     void Run();
     void SetSFM(HWSFM* sfm) {
         sfm_ = sfm;
@@ -23,6 +24,7 @@ public:
 private:
     void drawMappoints();
     HWSFM* sfm_ = nullptr;
+    Setting& setting_;
 };
     
 

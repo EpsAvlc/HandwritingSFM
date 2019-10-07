@@ -19,11 +19,12 @@
 class Setting
 {
 public:
+    friend class HWSFM;
+    friend class Viewer;
     Setting(const std::string& config_path);
-    std::vector<std::string> imagePaths() {return image_strs_;};
-    cv::Mat& K() {return K_;};
 private:
     std::vector<std::string> image_strs_;
     cv::Mat K_;    
+    float viewer_point_x_, viewer_point_y_, viewer_point_z_, viewer_point_f_;
 };
 #endif

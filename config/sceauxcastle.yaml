@@ -10,3 +10,8 @@ fx: 2905.88
 fy: 2905.88
 cx: 1416
 cy: 1064
+
+ViewerpointX: -0.3
+ViewerpointY: 0
+ViewerpointZ: -7
+ViewerpointF: 2000

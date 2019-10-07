@@ -30,13 +30,13 @@ target_link_libraries(hwsfm
     frame
     mappoint
     viewer
+    setting
     ${OpenCV_LIBS}
     )
 
 add_executable(main src/main.cpp)
 target_link_libraries(main 
 ${OpenCV_LIBS}
-setting
 hwsfm
 )
 

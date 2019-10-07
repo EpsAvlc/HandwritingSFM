@@ -17,30 +17,30 @@
 using namespace std;
 using namespace cv;
 
-HWSFM::HWSFM()
+HWSFM::HWSFM(Setting& s) : setting_(s), viewer_(s)
 {
-    K_ = Mat::zeros(3, 3, CV_32F);
+    K_ = setting_.K_.clone();
     viewer_.SetSFM(this);
     viewer_thread_ = thread(&Viewer::Run, &viewer_);
-
 }
 
-void HWSFM::AddImages(Mat& img)
+void HWSFM::addImages(Mat& img)
 {
     Frame cur(img);
+    cout << "[addImages@HWSFM]: Finishing adding image " << cur.Id() << endl;
     frames_.push_back(cur);
-}
-
-void HWSFM::SetCameraIntrins(cv::Mat& K)
-{
-    K_ = K.clone();
 }
 
 void HWSFM::StartReconstruction()
 {
+    for(int i = 0; i < setting_.image_strs_.size(); i++)
+    {
+        Mat img = imread(setting_.image_strs_[i]);
+        addImages(img);
+    }
     if(frames_.size() < 3)
     {
-        cerr << "HWFSM error: too few image to reconstruction" << endl;
+        cerr << "[StartReconstruction@HWSFM]: too few image to reconstruction" << endl;
     }
 
     initScale();

@@ -22,8 +22,6 @@ void Frame::extractFeatures(const Mat& img)
     Ptr<xfeatures2d::SIFT> sift = xfeatures2d::SIFT::create();
     sift->detect(img, keypoints_);
     sift->compute(img, keypoints_, descriptor_);
-
-    cout << "[extractFeatures@Frame]: finish adding image" << id_ << "." << endl;
 }
 
 bool Frame::AddTriangulated(int feature_index, int mappoint_id)
