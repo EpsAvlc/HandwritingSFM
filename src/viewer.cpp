@@ -26,8 +26,8 @@ void Viewer::Run()
 
     // Define Projection and initial ModelView matrix
     pangolin::OpenGlRenderState s_cam(
-        pangolin::ProjectionMatrix(1280,720,420,420,720,360,0.2,100),
-        pangolin::ModelViewLookAt(0,2,-70, 0,0,0, pangolin::AxisY)
+        pangolin::ProjectionMatrix(1280,720,2000, 2000,720,360,0.2,100),
+        pangolin::ModelViewLookAt(0, 0, -7, 0, 0, 0, 0.0, -1.0, 0.0)
     );
 
     // Create Interactive View in window
@@ -63,19 +63,22 @@ void Viewer::drawMappoints()
         cerr << "[drawMappoints@Viewer]: Your sfm class is a nullptr." << endl;
         return;
     }
-    const vector<MapPoint> mps = sfm_->GetMappoints(); 
-    if(mps.empty())
+    const vector<MapPoint> mpts = sfm_->GetMappoints(); 
+    if(mpts.empty())
         return;
 
+    // cout << mps.size() << endl;
     // set points' radius.
-    glPointSize(5);
+    glPointSize(3);
     glBegin(GL_POINTS);
     // set points' color
     glColor3f(1.0, 0.0, 0.0);
 
-    for(int i = 0; i < mps.size(); i++)
+    for(int i = 0; i < mpts.size(); i++)
     {
-        Point3f world_pos = mps[i].GetWorldPos();  
+        Scalar mpt_color = mpts[i].GetColor();
+        glColor3f(float(mpt_color(2) / 255.), float(mpt_color(1) / 255.), float(mpt_color(0) / 255.));
+        Point3f world_pos = mpts[i].GetWorldPos();  
         glVertex3f(world_pos.x, world_pos.y, world_pos.z);         
     }
     glEnd();

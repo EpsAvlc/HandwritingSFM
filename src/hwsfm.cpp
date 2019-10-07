@@ -21,7 +21,7 @@ HWSFM::HWSFM()
 {
     K_ = Mat::zeros(3, 3, CV_32F);
     viewer_.SetSFM(this);
-    // viewer_thread_ = thread(&Viewer::Run, &viewer_);
+    viewer_thread_ = thread(&Viewer::Run, &viewer_);
 
 }
 
@@ -150,13 +150,17 @@ void HWSFM::triangulation(int l_index, int r_index, const vector<DMatch>& good_m
         pt /= pt.at<float>(3, 0);
         MapPoint mpt(pt.at<float>(0, 0), pt.at<float>(1, 0), pt.at<float>(2, 0));
 
+        Scalar mpt_color = frames_[l_index].Img().at<Vec3b>(frames_[l_index].Keypoints()[good_matches[i].queryIdx].pt);
+        mpt.SetColor(mpt_color);
         mpt.AddObserver(l_index, good_matches[i].queryIdx);
         mpt.AddObserver(r_index, good_matches[i].trainIdx);
 
         frames_[l_index].AddTriangulated(good_matches[i].queryIdx, mpt.Id());
         frames_[r_index].AddTriangulated(good_matches[i].trainIdx, mpt.Id());
 
-        cout << mpt.x() << " " << mpt.y() << " " << mpt.z() << endl;
+        mappoints_.push_back(mpt); 
+
+        // cout << mpt.x() << " " << mpt.y() << " " << mpt.z() << endl;
         /********** validation **********/
         // Mat pt3d(3, 1, CV_32FC1);
         // pt3d.at<float>(0, 0) = pt.at<float>(0, 0);

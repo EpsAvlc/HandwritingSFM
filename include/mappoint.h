@@ -30,11 +30,14 @@ public:
     float& y(){return y_;};
     float& z(){return z_;};
     cv::Point3f GetWorldPos() const { return cv::Point3f(x_, y_, z_);};
+    cv::Scalar GetColor() const {return color_;};
+    void SetColor(cv::Scalar color) { color_ = color; };
 private:
     float x_ = 0;
     float y_ = 0;
     float z_ = 0;
-        
+    
+    cv::Scalar color_;
     static int id_counter_;
     int id_;
     std::unordered_map<int, int> observers_;
