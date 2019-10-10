@@ -26,12 +26,14 @@ public:
     };
     int Id() {return id_;};
     bool AddObserver(int frame_index, int feature_index);
+    int QueryObserver(int frame_index);
     float& x(){return x_;};
     float& y(){return y_;};
     float& z(){return z_;};
     cv::Point3f GetWorldPos() const { return cv::Point3f(x_, y_, z_);};
     cv::Scalar GetColor() const {return color_;};
     void SetColor(cv::Scalar color) { color_ = color; };
+    void UpdateColor(const cv::Scalar& color);
 private:
     float x_ = 0;
     float y_ = 0;

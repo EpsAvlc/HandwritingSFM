@@ -23,4 +23,20 @@ bool MapPoint::AddObserver(int frame_index, int feature_index)
     
 }
 
+int MapPoint::QueryObserver(int frame_index)
+{
+    if(observers_.count(frame_index) == 0)
+    {
+        return -1;
+    }
+    else{
+        return observers_[frame_index];
+    }
+}
+
+void MapPoint::UpdateColor(const cv::Scalar& color)
+{
+    
+}
+
 int MapPoint::id_counter_ = 0;

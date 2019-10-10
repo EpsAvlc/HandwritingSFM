@@ -69,13 +69,13 @@ void Viewer::drawMappoints()
         cerr << "[drawMappoints@Viewer]: Your sfm class is a nullptr." << endl;
         return;
     }
-    const vector<MapPoint> mpts = sfm_->mappoints_; 
+    const vector<MapPoint> mpts = sfm_->GetMappoints(); 
     if(mpts.empty())
         return;
 
     // cout << mps.size() << endl;
     // set points' radius.
-    glPointSize(3);
+    glPointSize(2);
     glBegin(GL_POINTS);
     // set points' color
     glColor3f(1.0, 0.0, 0.0);

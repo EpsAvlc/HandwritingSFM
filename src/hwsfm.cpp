@@ -81,7 +81,7 @@ void HWSFM::initScale()
     vector<uchar> status;
     Mat essential = findEssentialMat(points_lhs, points_rhs, K_, RANSAC, 0.9, 1, status);
 
-    reduceVector(good_matches, status);
+    // reduceVector(good_matches, status);
 
     /* display matches */
     // Mat match_mat;
@@ -124,11 +124,14 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
     /* start solve pnp */
     vector<Point3f> pts_3d;
     vector<Point2f> pts_2d;
+    vector<int> mptIds;
     for(int i = 0; i < matches.size(); i++)
     {
         int mptId = lhs.GetTriangulated(matches[i].queryIdx);
         if( mptId != -1)
         {
+            // cout << matches[i].queryIdx << endl;
+            // cout << mappoints_[mptId].QueryObserver(lhs.Id()) << endl;
             /* validation */
             // Mat pt3d(3, 1, CV_32FC1);
             // pt3d.at<float>(0, 0) = mappoints_[mptId].x();
@@ -142,18 +145,20 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
             /**************/
             pts_3d.push_back(Point3f(mappoints_[mptId].x(), mappoints_[mptId].y(), mappoints_[mptId].z()));
             pts_2d.push_back(rhs.Keypoints()[matches[i].trainIdx].pt);
+            mptIds.push_back(mptId);
         }
     }
     if(pts_3d.size() < 8)
     {
         cerr << "[solvePnpAndTriangulation@HWSFM]: too few point pairs betwean frame " << lhs.Id() << " and frame " << rhs.Id() << ", the pairs are " << pts_3d.size() << endl; 
+        return;
     }
     Mat rvec, t;
-    // solvePnP(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, SOLVEPNP_DLS);
-    // solvePnP(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, true, SOLVEPNP_ITERATIVE);
-    vector<uchar> status;
-    solvePnPRansac(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, 1000, 8.0f, 0.99, status);
+    Mat inliers;;
+    // solvePnP(pts_3d, pts_2d, K_, noArray(), rvec, t, false, SOLVEPNP_EPNP);
+    solvePnPRansac(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, 1000, 8.f, 0.9, inliers);
     // reduceVector(matches, status);
+    // cout << inliers << endl;
     Mat R;
     Rodrigues(rvec, R);
     R.convertTo(R, CV_32F);
@@ -161,28 +166,29 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
     rhs.SetR(R);
     rhs.SetT(t);
 
-    // cout << rhs.GetR() << endl;
-    // cout << rhs.GetT() << endl << endl;
-
-    // cout << R.t() << endl;
-    // cout << t << endl;
-    // cout << R * R.t() << endl;
-
     /* validation */
-    // vector<Point2f> proj_points;
-    // projectPoints(pts_3d, rvec, t, K_, noArray(), proj_points);
     // for(int i = 0; i < pts_3d.size(); i++)
     // {
-    //     // Mat pt3d(3, 1, CV_32FC1);
-    //     // pt3d.at<float>(0, 0) = pts_3d[i].x;
-    //     // pt3d.at<float>(1, 0) = pts_3d[i].y;
-    //     // pt3d.at<float>(2, 0) = pts_3d[i].z;
+    //     Mat pt3d(3, 1, CV_32FC1);
+    //     pt3d.at<float>(0, 0) = pts_3d[i].x;
+    //     pt3d.at<float>(1, 0) = pts_3d[i].y;
+    //     pt3d.at<float>(2, 0) =  pts_3d[i].z;
 
-    //     // Mat reprojected = K_*(rhs.GetR() * pt3d + rhs.GetT());
-    //     // reprojected /= reprojected.at<float>(2, 0); 
-    //     cout << "original : " << pts_2d[i] << endl;
-    //     cout << "reprojected : " << proj_points[i] << endl;
+    //     Mat reprojected_lhs = K_*(lhs.GetR() * pt3d + lhs.GetT());
+    //     Point2f pt_lhs = lhs.Keypoints()[mappoints_[mptIds[i]].QueryObserver(lhs.Id())].pt;
+    //     reprojected_lhs /= reprojected_lhs.at<float>(2, 0); 
+
+    //     Mat reprojected_rhs = K_*(rhs.GetR() * pt3d + rhs.GetT());
+    //     reprojected_rhs /= reprojected_rhs.at<float>(2, 0); 
+    //     cout << "original_lhs : " << pts_2d[i] << endl;
+    //     cout << "reprojected_lhs : " << reprojected_lhs << endl;
+    //     cout << "original_rhs : " << pts_2d[i] << endl;
+    //     cout << "reprojected_rhs : " << reprojected_rhs << endl;
     // }
+
+    // cout << R << endl;
+    // cout << t << endl;
+
     /**************/
 
     triangulation(lhs, rhs, matches);
@@ -257,16 +263,16 @@ void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_mat
         int lhs_index = good_matches[i].queryIdx;
         int rhs_index = good_matches[i].trainIdx;
         // /** If this point has been triangulated. */
-        // if(int mptId = lhs.GetTriangulated(lhs_index) != -1)
-        // {
-        //     rhs.AddTriangulated(rhs_index, mptId);
-        //     continue;
-        // }
-        // else if(int mptId = rhs.GetTriangulated(rhs_index) != -1)
-        // {
-        //     lhs.AddTriangulated(lhs_index, mptId);
-        //     continue;
-        // }
+        if(int mptId = lhs.GetTriangulated(lhs_index) != -1)
+        {
+            rhs.AddTriangulated(rhs_index, mptId);
+            continue;
+        }
+        else if(int mptId = rhs.GetTriangulated(rhs_index) != -1)
+        {
+            lhs.AddTriangulated(lhs_index, mptId);
+            continue;
+        }
         lhs_cam_pts.push_back(pixel2Camera(lhs.Keypoints()[lhs_index].pt));
         rhs_cam_pts.push_back(pixel2Camera(rhs.Keypoints()[rhs_index].pt));
         // origin_pts.push_back(lhs.Keypoints()[lhs_index].pt);
@@ -281,7 +287,7 @@ void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_mat
         pt /= pt.at<float>(3, 0);
         MapPoint mpt(pt.at<float>(0, 0), pt.at<float>(1, 0), pt.at<float>(2, 0));
 
-        /********** validation **********/
+        /********** Reject points with huge projection error **********/
         Mat pt3d(3, 1, CV_32FC1);
         pt3d.at<float>(0, 0) = pt.at<float>(0, 0);
         pt3d.at<float>(1, 0) = pt.at<float>(1, 0);
@@ -295,19 +301,23 @@ void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_mat
         // cout << pt2d << endl;
 
         float err = fabs(reprojected.at<float>(0, 0) - pt2d.x) + fabs(reprojected.at<float>(1, 0) - pt2d.y);
-        if(err > 10)
+        if(err > 8)
             continue;
         /****************************** */
-
-        Scalar mpt_color =lhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
-        mpt.SetColor(mpt_color);
+        // TODO: add update color;
+        Scalar mpt_lhs_color =lhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
+        mpt.SetColor(mpt_lhs_color);
+        // Scalar mpt_rhs_color =rhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
+        // mpt.SetColor(mpt_color);
         mpt.AddObserver(lhs.Id(), good_matches[i].queryIdx);
         mpt.AddObserver(rhs.Id(), good_matches[i].trainIdx);
+        // mpt.UpdateColor(mpt_lhs_color);
+        // mpt.UpdateColor(mpt_rhs_color);
 
         lhs.AddTriangulated(good_matches[i].queryIdx, mpt.Id());
         rhs.AddTriangulated(good_matches[i].trainIdx, mpt.Id());
 
-        mappoints_.push_back(mpt); 
+        mappoints_[mpt.Id()] = mpt; 
         tri_count ++;
     }
     cout << "[triangulation@HWSFM]: triangulate " << tri_count << " points between frame " << lhs.Id() << " and " << rhs.Id() << endl;
@@ -340,4 +350,14 @@ Point2f HWSFM::camera2Pixel(const cv::Point2f& cam_pt)
         cam_pt.x * K_.at<float> ( 0,0 ) + K_.at<float>(0, 2),
         cam_pt.y * K_.at<float> ( 1,1 ) + K_.at<float>(1, 2)
     );
+}
+
+const vector<MapPoint> HWSFM::GetMappoints()
+{
+    vector<MapPoint> res;
+    for(auto it = mappoints_.begin(); it != mappoints_.end(); it++)
+    {
+        res.push_back(it->second);
+    }
+    return res;
 }

@@ -26,7 +26,7 @@ class HWSFM
 public:
     friend class Viewer;
     HWSFM(Setting& s);
-    const std::vector<MapPoint> GetMappoints() {return mappoints_;};
+    const std::vector<MapPoint> GetMappoints();
     void StartReconstruction();
     cv::Mat GetCurMatch(){return cur_match_img_;};
     // void SetViewerBusy(bool isbusy);
@@ -111,7 +111,7 @@ private:
     std::vector<Frame> frames_;
     std::vector<std::vector<cv::KeyPoint>> features_;
     std::vector<std::vector<cv::Mat>> descriptors_;
-    std::vector<MapPoint> mappoints_;
+    std::unordered_map<int, MapPoint> mappoints_;
     Viewer viewer_;    
     Setting& setting_;
     std::thread viewer_thread_;
