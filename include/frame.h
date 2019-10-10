@@ -18,6 +18,8 @@
 class Frame
 {
 public:
+    friend class MapPoint;
+
     Frame(const cv::Mat& img) 
     {
         id_ = id_counter_;
@@ -30,9 +32,17 @@ public:
     const std::vector<cv::KeyPoint>& Keypoints() {return keypoints_;};
     const cv::Mat& Img() {return img_;};
     const cv::Mat& GetR() {return R_;};
-    void SetR(cv::Mat R) {R_ = R;};
+    void SetR(cv::Mat R) {R_ = R; is_computed_ = true;};
     const cv::Mat& GetT() {return t_;};
-    void SetT(cv::Mat t) {t_ = t;};
+    void SetT(cv::Mat t) {t_ = t; is_computed_ = true;};
+
+    /**
+     * @brief if this frame's R t has been computed.
+     * 
+     * @return true has been computed
+     * @return false has not.
+     */
+    bool IsComputed() {return is_computed_;};
 
     bool AddTriangulated(int feature_index, int mappoint_id);
     /**
@@ -51,11 +61,9 @@ private:
     cv::Mat img_;
     cv::Mat R_;
     cv::Mat t_;
+    bool is_computed_ = false;
     
-    /**
-     * @brief map that stores the feature index that has been triangulated.
-     * 
-     */
+     // map that stores the feature index that has been triangulated.
     std::unordered_map<int, int> triangulated_;
 };
 

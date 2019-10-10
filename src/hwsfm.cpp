@@ -52,6 +52,12 @@ void HWSFM::StartReconstruction()
         viewer_.SetUpdate();
     }
 
+    // for(int i = frames_.size() / 2 + 1; i < frames_.size(); i++)
+    // {
+    //     solvePnPAndTriangulation(frames_[frames_.size() / 2], frames_[i]);
+    //     viewer_.SetUpdate();
+    // }
+
     for(int i = 1; i < frames_.size()-1; i++)
     {
         for(int j = i+1; j < frames_.size(); j++)
@@ -81,23 +87,13 @@ void HWSFM::initScale()
     vector<uchar> status;
     Mat essential = findEssentialMat(points_lhs, points_rhs, K_, RANSAC, 0.9, 1, status);
 
-    // reduceVector(good_matches, status);
-
-    /* display matches */
-    // Mat match_mat;
-    // drawMatches(frames_[0].Img(), frames_[0].Keypoints(), frames_[1].Img(), frames_[1].Keypoints(), good_matches, match_mat, Scalar::all(-1), Scalar::all(-1), vector<char>(),  DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    // resize(match_mat, match_mat, Size(), 0.5, 0.5);
-    // imshow("matches", match_mat);
-    // waitKey(0);
-    /*******************/
-
     Mat R, t;
     recoverPose(essential, points_lhs, points_rhs, K_, R, t);   
     R.convertTo(R, CV_32F);
     t.convertTo(t, CV_32F);
 
-    /* define a random scale, here we define t's norm is 5 */
-    // t = t*5;
+    /* define a random scale, here we define t's norm is 0.5 */
+    t = t*0.5;
     /* define first frame as orignal position. */
     frames_[0].SetR(Mat::eye(3, 3, CV_32F));
     frames_[0].SetT(Mat::zeros(3, 1, CV_32F));
@@ -109,6 +105,11 @@ void HWSFM::initScale()
 
 void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
 {
+    if(rhs.IsComputed())
+    {
+        cerr << "[solvePnPAndTriangulation@HWSFM]: frame " << rhs.Id() << " has been computed." << endl;
+        return;
+    }
     vector<DMatch> matches;
     matchFeatures(lhs, rhs, matches);
     rejectWithF(lhs, rhs, matches);
@@ -130,19 +131,6 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
         int mptId = lhs.GetTriangulated(matches[i].queryIdx);
         if( mptId != -1)
         {
-            // cout << matches[i].queryIdx << endl;
-            // cout << mappoints_[mptId].QueryObserver(lhs.Id()) << endl;
-            /* validation */
-            // Mat pt3d(3, 1, CV_32FC1);
-            // pt3d.at<float>(0, 0) = mappoints_[mptId].x();
-            // pt3d.at<float>(1, 0) = mappoints_[mptId].y();
-            // pt3d.at<float>(2, 0) =  mappoints_[mptId].z();
-
-            // Mat reprojected = K_*(lhs.GetR() * pt3d + lhs.GetT());
-            // reprojected /= reprojected.at<float>(2, 0); 
-            // cout << "original : " << lhs.Keypoints()[matches[i].queryIdx].pt << endl;
-            // cout << "reprojected : " << reprojected << endl;
-            /**************/
             pts_3d.push_back(Point3f(mappoints_[mptId].x(), mappoints_[mptId].y(), mappoints_[mptId].z()));
             pts_2d.push_back(rhs.Keypoints()[matches[i].trainIdx].pt);
             mptIds.push_back(mptId);
@@ -154,11 +142,13 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
         return;
     }
     Mat rvec, t;
-    Mat inliers;;
+    Mat inliers;
+    // double confidence = 0.9;
     // solvePnP(pts_3d, pts_2d, K_, noArray(), rvec, t, false, SOLVEPNP_EPNP);
-    solvePnPRansac(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, 1000, 8.f, 0.9, inliers);
+    bool pnp_res = solvePnPRansac(pts_3d, pts_2d, K_, cv::noArray(), rvec, t, false, 1000, 8.f, 0.99, inliers);
     // reduceVector(matches, status);
     // cout << inliers << endl;
+    // cout << (float)inliers.rows / pts_3d.size() << endl;
     Mat R;
     Rodrigues(rvec, R);
     R.convertTo(R, CV_32F);
@@ -186,8 +176,8 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
     //     cout << "reprojected_rhs : " << reprojected_rhs << endl;
     // }
 
-    // cout << R << endl;
-    // cout << t << endl;
+    cout << R << endl;
+    cout << t << endl;
 
     /**************/
 
@@ -217,8 +207,6 @@ void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
             good_matches.push_back(matches[i]);
         }
     }
-    
-
 }
 
 void HWSFM::rejectWithF(Frame& lhs, Frame& rhs, vector<cv::DMatch>& matches)
@@ -257,25 +245,27 @@ void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_mat
         rhs_R.at<float>(2, 0), rhs_R.at<float>(2, 1), rhs_R.at<float>(2, 2), rhs_t.at<float>(2, 0));
 
     vector<Point2f> lhs_cam_pts, rhs_cam_pts;
-    // vector<Point2f> origin_pts;
     for(int i = 0; i < good_matches.size(); i++)
     {
         int lhs_index = good_matches[i].queryIdx;
         int rhs_index = good_matches[i].trainIdx;
-        // /** If this point has been triangulated. */
-        if(int mptId = lhs.GetTriangulated(lhs_index) != -1)
+        /** If this point has been triangulated. */
+        int mptId = lhs.GetTriangulated(lhs_index);
+        if(mptId  != -1)
         {
             rhs.AddTriangulated(rhs_index, mptId);
+            mappoints_[mptId].AddObserver(rhs, rhs_index);
             continue;
         }
-        else if(int mptId = rhs.GetTriangulated(rhs_index) != -1)
+        mptId = rhs.GetTriangulated(rhs_index);
+        if(mptId != -1)
         {
             lhs.AddTriangulated(lhs_index, mptId);
+            mappoints_[mptId].AddObserver(lhs, lhs_index);
             continue;
         }
         lhs_cam_pts.push_back(pixel2Camera(lhs.Keypoints()[lhs_index].pt));
         rhs_cam_pts.push_back(pixel2Camera(rhs.Keypoints()[rhs_index].pt));
-        // origin_pts.push_back(lhs.Keypoints()[lhs_index].pt);
     }
 
     Mat pts4d;
@@ -301,18 +291,11 @@ void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_mat
         // cout << pt2d << endl;
 
         float err = fabs(reprojected.at<float>(0, 0) - pt2d.x) + fabs(reprojected.at<float>(1, 0) - pt2d.y);
-        if(err > 8)
+        if(err > 5)
             continue;
         /****************************** */
-        // TODO: add update color;
-        Scalar mpt_lhs_color =lhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
-        mpt.SetColor(mpt_lhs_color);
-        // Scalar mpt_rhs_color =rhs.Img().at<Vec3b>(lhs.Keypoints()[good_matches[i].queryIdx].pt);
-        // mpt.SetColor(mpt_color);
-        mpt.AddObserver(lhs.Id(), good_matches[i].queryIdx);
-        mpt.AddObserver(rhs.Id(), good_matches[i].trainIdx);
-        // mpt.UpdateColor(mpt_lhs_color);
-        // mpt.UpdateColor(mpt_rhs_color);
+        mpt.AddObserver(lhs, good_matches[i].queryIdx);
+        mpt.AddObserver(rhs, good_matches[i].trainIdx);
 
         lhs.AddTriangulated(good_matches[i].queryIdx, mpt.Id());
         rhs.AddTriangulated(good_matches[i].trainIdx, mpt.Id());

@@ -9,11 +9,16 @@
 
 #include "mappoint.h"
 
-bool MapPoint::AddObserver(int frame_index, int feature_index)
+using namespace cv;
+using namespace std;
+
+bool MapPoint::AddObserver(Frame& frame, int feature_index)
 {
-    if(observers_.count(frame_index) == 0)
+    if(observers_.count(frame.Id()) == 0)
     {
-        observers_[frame_index] = feature_index;
+        observers_[frame.Id()] = feature_index;
+        Scalar color = frame.Img().at<Vec3b>(frame.Keypoints()[feature_index].pt);
+        updateColor(color);        
         return true;
     }
     else
@@ -34,9 +39,24 @@ int MapPoint::QueryObserver(int frame_index)
     }
 }
 
-void MapPoint::UpdateColor(const cv::Scalar& color)
+void MapPoint::updateColor(const cv::Scalar& color)
 {
-    
+   long colors[3] = {};
+   /* Only One observer */
+   if(observers_.size() == 1) 
+   {
+       color_ = color;
+   }
+   else
+   {
+        int n = observers_.size() - 1;
+        for(int i = 0; i < 3; i++)
+        {
+            colors[i] = (long(color_(i)) * n + color(i)) / (n+1);
+            color_(i) = colors[i];
+        }
+   }
+   
 }
 
 int MapPoint::id_counter_ = 0;

@@ -14,8 +14,11 @@
 #include <iostream>
 
 #include <pangolin/pangolin.h>
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+
+#include <Eigen/Core>
 
 using namespace std;
 using namespace cv;
@@ -43,20 +46,17 @@ void Viewer::Run()
         
         d_cam.Activate(s_cam);
 
-        if(update_)
-        {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            drawMappoints();
-        }
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawMappoints();
+        drawCameras();
 
         pangolin::FinishFrame();
-        // usleep(30000);
-        Mat cur_match_img = sfm_->GetCurMatch();
-        if(!cur_match_img.empty())
-        {
-            lock_guard<mutex> lock(sfm_->viewer_mutex_);
-            imshow("cur_match", cur_match_img);
-        }
+        // Mat cur_match_img = sfm_->GetCurMatch();
+        // if(!cur_match_img.empty())
+        // {
+        //     lock_guard<mutex> lock(sfm_->viewer_mutex_);
+        //     imshow("cur_match", cur_match_img);
+        // }
         waitKey(30);
     }
 }
@@ -89,4 +89,65 @@ void Viewer::drawMappoints()
         glVertex3f(world_pos.x, world_pos.y, world_pos.z);         
     }
     glEnd();
+}
+
+void Viewer::drawCameras()
+{
+    lock_guard<mutex> lock(sfm_->viewer_mutex_);
+    const float &w = 0.08;
+    const float h = w*0.75;
+    const float z = w*0.6;
+
+
+    for(int i = 0; i < sfm_->frames_.size(); i++)
+    {
+        Frame& cur_frame = sfm_->frames_[i];
+        if(cur_frame.IsComputed() == false)
+            continue;
+        
+        Eigen::Matrix4f cur_T;
+        for(int i = 0; i < 3; i++)
+            for(int j = 0; j < 3; j++)
+            {
+                cur_T(i, j) = cur_frame.GetR().at<float>(j, i);
+            }
+        for(int i = 0; i < 3; i++)
+        {
+            cur_T(i, 3) = -cur_frame.GetT().at<float>(i, 0);
+        }
+        cur_T(3, 3) = 1;
+        // cout << "Frame " << cur_frame.Id() << "s T: " << endl << cur_T << endl;
+        pangolin::OpenGlMatrix cur_T_gl(cur_T);
+
+        glPushMatrix();
+        glMultMatrixd(cur_T_gl.m);
+
+        glLineWidth(3);
+        glColor3f(1.f / sfm_->frames_.size() * (cur_frame.Id() +1), 0.0f,0.5f);
+        glBegin(GL_LINES);
+        glVertex3f(0,0,0);
+        glVertex3f(w,h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(w,-h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(-w,-h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(-w,h,z);
+
+        glVertex3f(w,h,z);
+        glVertex3f(w,-h,z);
+
+        glVertex3f(-w,h,z);
+        glVertex3f(-w,-h,z);
+
+        glVertex3f(-w,h,z);
+        glVertex3f(w,h,z);
+
+        glVertex3f(-w,-h,z);
+        glVertex3f(w,-h,z);
+        glEnd();
+
+        glPopMatrix();
+    }
+
 }

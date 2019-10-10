@@ -106,6 +106,7 @@ private:
         vec.resize(index);
     }
 
+
     /* private parameters */
     cv::Mat K_;
     std::vector<Frame> frames_;

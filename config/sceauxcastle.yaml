@@ -3,16 +3,16 @@
 data_path: /home/cm/dataset/SceauxCastle/images
 
 image_list: - '100_7102.JPG'
-            - '100_7103.JPG'
-            - '100_7100.JPG'
-            - '100_7108.JPG'
             - '100_7101.JPG'
+            - '100_7100.JPG'
+            - '100_7103.JPG'
             - '100_7104.JPG'
-            - '100_7106.JPG'
-            - '100_7107.JPG'
             - '100_7105.JPG'
-            - '100_7109.JPG'
-            - '100_7110.JPG'
+            - '100_7106.JPG'
+            # - '100_7107.JPG'
+            # - '100_7108.JPG'
+            # - '100_7109.JPG'
+            # - '100_7110.JPG'
 
 fx: 2905.88
 fy: 2905.88
@@ -22,4 +22,4 @@ cy: 1064
 ViewerpointX: -0.3
 ViewerpointY: 0
 ViewerpointZ: -7
-ViewerpointF: 2000
+ViewerpointF: 2905.88

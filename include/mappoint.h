@@ -15,6 +15,8 @@
 
 #include <opencv2/core/core.hpp>
 
+#include "frame.h"
+
 class MapPoint
 {
 public:
@@ -25,7 +27,7 @@ public:
         id_counter_++;
     };
     int Id() {return id_;};
-    bool AddObserver(int frame_index, int feature_index);
+    bool AddObserver(Frame& frame, int feature_index);
     int QueryObserver(int frame_index);
     float& x(){return x_;};
     float& y(){return y_;};
@@ -33,8 +35,10 @@ public:
     cv::Point3f GetWorldPos() const { return cv::Point3f(x_, y_, z_);};
     cv::Scalar GetColor() const {return color_;};
     void SetColor(cv::Scalar color) { color_ = color; };
-    void UpdateColor(const cv::Scalar& color);
+    
 private:
+    void updateColor(const cv::Scalar& color);
+
     float x_ = 0;
     float y_ = 0;
     float z_ = 0;
