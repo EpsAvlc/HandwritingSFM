@@ -7,16 +7,16 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 set(OPENCV_ENABLE_NONFREE)
 find_package(OpenCV 3.4 REQUIRED)
-
 find_package(Pangolin 0.4 REQUIRED)
-
 find_package(G2O REQUIRED)
+find_package(PCL REQUIRED)
 
 include_directories(
     "/usr/include/eigen3" 
     include
     ${Pangolin_INCLUDE_DIRS}
     ${G2O_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
     )
 
 add_library(setting src/setting.cpp)
@@ -44,9 +44,10 @@ target_link_libraries(hwsfm
     mappoint
     viewer
     setting
+    types_six_dof_expmap
     ${OpenCV_LIBS}
     ${G2O_LIBS}
-    types_six_dof_expmap
+    ${PCL_LIBRARIES}
     )
 
 add_executable(main src/main.cpp)

@@ -110,6 +110,8 @@ private:
     
     void bundleAdjustment();
 
+    void statisticalOutlierRemoval(); 
+
     /* private parameters */
     cv::Mat K_;
     std::vector<Frame> frames_;

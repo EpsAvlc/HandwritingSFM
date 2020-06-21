@@ -26,7 +26,7 @@ public:
         id_ = id_counter_; 
         id_counter_++;
     };
-    int Id() {return id_;};
+    int Id() const {return id_;};
     bool AddObserver(Frame& frame, int feature_index);
     int QueryObserver(int frame_index);
     std::unordered_map<int, int> GetObservers(){return observers_;};

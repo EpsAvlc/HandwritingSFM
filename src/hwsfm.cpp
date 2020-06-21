@@ -22,8 +22,13 @@
 #include <g2o/core/robust_kernel.h>
 #include <g2o/core/robust_kernel_impl.h>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+
 using namespace std;
 using namespace cv;
+using namespace pcl;
 
 HWSFM::HWSFM(Setting& s) : setting_(s), viewer_(s)
 {
@@ -79,7 +84,9 @@ void HWSFM::StartReconstruction()
         }
     }
 
+    statisticalOutlierRemoval();
     bundleAdjustment();
+    statisticalOutlierRemoval();
 }
 
 vector<DMatch> HWSFM::initScale()
@@ -461,5 +468,35 @@ void HWSFM::bundleAdjustment()
         mpt.second.x() = pt_loc.x();
         mpt.second.y() = pt_loc.y();
         mpt.second.z() = pt_loc.z();
+    }
+}
+
+void HWSFM::statisticalOutlierRemoval()
+{
+    const vector<MapPoint> mpts = GetMappoints();
+    PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>);
+    for(int i = 0; i < mpts.size(); i++)
+    {
+        Point3f pt = mpts[i].GetWorldPos();
+        cloud->push_back(PointXYZ(pt.x, pt.y, pt.z));
+    }
+
+    StatisticalOutlierRemoval<PointXYZ> sor(true);
+    sor.setInputCloud(cloud);
+    sor.setMeanK(100);
+    sor.setStddevMulThresh(0.1);
+    sor.setInputCloud(cloud);
+
+    PointCloud<PointXYZ> cloud_out;
+    sor.filter(cloud_out);
+    PointIndices remove_indices;
+    sor.getRemovedIndices(remove_indices);
+    lock_guard<mutex> lock(viewer_mutex_);
+    cout << "[statisticalOutlierRemoval@HWSFM]: There is " << remove_indices.indices.size() << " outliers." << endl;
+    cout << "[statisticalOutlierRemoval@HWSFM]: Start remove outliers." << endl;
+    for(int i = 0; i < remove_indices.indices.size(); i++)
+    {
+        int remove_mpt_id = mpts[remove_indices.indices[i]].Id();
+        mappoints_.erase(remove_mpt_id);
     }
 }
