@@ -21,13 +21,11 @@ public:
     void SetSFM(HWSFM* sfm) {
         sfm_ = sfm;
     };
-    void SetUpdate() {update_ = true;};
 private:
     void drawMappoints();
     void drawCameras();
     HWSFM* sfm_ = nullptr;
     Setting& setting_;
-    bool update_ = false;
 };
     
 

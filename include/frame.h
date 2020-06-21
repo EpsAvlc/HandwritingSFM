@@ -15,6 +15,8 @@
 
 #include <opencv2/core/core.hpp>
 
+#include <g2o/types/slam3d/se3quat.h>
+
 class Frame
 {
 public:
@@ -35,6 +37,7 @@ public:
     void SetR(cv::Mat R) {R_ = R; is_computed_ = true;};
     const cv::Mat& GetT() {return t_;};
     void SetT(cv::Mat t) {t_ = t; is_computed_ = true;};
+    void SetPose(g2o::SE3Quat& se3);
 
     /**
      * @brief if this frame's R t has been computed.

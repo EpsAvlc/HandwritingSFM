@@ -36,9 +36,10 @@ private:
 
     /**
      * @brief Use first two images to init scale.
+     * @return the matches from lhs to rhs
      * 
      */
-    void initScale();
+    std::vector<cv::DMatch> initScale();
 
     /**
      * @brief When inited scale, use pnp to solve R, t and triangulate
@@ -47,8 +48,9 @@ private:
      * @param lhs Frame left hand side that must have 
      *          triangulated points.
      * @param rhs Frame right hand side.
+     * @return the matches from lhs to rhs
      */
-    void solvePnPAndTriangulation(Frame& lhs, Frame& rhs);
+    std::vector<cv::DMatch> solvePnPAndTriangulation(Frame& lhs, Frame& rhs);
     /**
      * @brief Use flannbasedMatcher to match keypoins
      * 
@@ -105,14 +107,14 @@ private:
         }
         vec.resize(index);
     }
-
+    
+    void bundleAdjustment();
 
     /* private parameters */
     cv::Mat K_;
     std::vector<Frame> frames_;
-    std::vector<std::vector<cv::KeyPoint>> features_;
-    std::vector<std::vector<cv::Mat>> descriptors_;
     std::unordered_map<int, MapPoint> mappoints_;
+    std::vector<std::vector<std::vector<cv::DMatch>>> all_matches_;
     Viewer viewer_;    
     Setting& setting_;
     std::thread viewer_thread_;

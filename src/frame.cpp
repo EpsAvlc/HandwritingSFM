@@ -20,21 +20,18 @@ int Frame::id_counter_ = 0;
 
 void Frame::extractFeatures(const Mat& img)
 {
-    vector<Mat> bgr;
-    split(img, bgr);
-    
-    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
-    vector<Mat> bgr_eq(3);
-    clahe->apply(bgr[0], bgr_eq[0]);
-    clahe->apply(bgr[1], bgr_eq[1]);
-    clahe->apply(bgr[2], bgr_eq[2]);
+    Mat img_gray;
+    if(img.channels() == 3)
+    {
+        cvtColor(img, img_gray, COLOR_BGR2GRAY);
+    }
+    else
+    {
+        img_gray = img;
+    }
 
-    // for(int i = 0; i < 3; i++)
-    // {
-    //     equalizeHist(bgr[i], bgr_eq[i]);
-    // }
     Mat img_eq;
-    merge(bgr_eq, img_eq);
+    equalizeHist(img_gray, img_eq);
 
     // Mat img_eq = img.clone();
 
@@ -67,4 +64,19 @@ int Frame::GetTriangulated(int feature_index)
         return triangulated_[feature_index];
     }
     
+}
+
+void Frame::SetPose(g2o::SE3Quat& se3)
+{
+    Eigen::Quaterniond q = se3.rotation();
+    Eigen::Matrix3d R_eigen = q.matrix();
+    for(int i = 0; i < 3; i ++)
+        for(int j = 0; j < 3; j++)
+        {
+            R_.at<float>(i, j) = R_eigen(i, j);
+        }
+    Eigen::Vector3d t_eigen = se3.translation();
+    t_.at<float>(0, 0) = t_eigen.x();
+    t_.at<float>(1, 0) = t_eigen.y();
+    t_.at<float>(2, 0) = t_eigen.z();
 }

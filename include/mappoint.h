@@ -29,6 +29,7 @@ public:
     int Id() {return id_;};
     bool AddObserver(Frame& frame, int feature_index);
     int QueryObserver(int frame_index);
+    std::unordered_map<int, int> GetObservers(){return observers_;};
     float& x(){return x_;};
     float& y(){return y_;};
     float& z(){return z_;};

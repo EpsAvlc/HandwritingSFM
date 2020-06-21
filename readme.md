@@ -4,11 +4,13 @@ I prepare to write a simple sfm framework by myself. This framework include **bu
 
 ## Goal
 
-[x] front_end
-[ ] bundle adjestment
-[ ] epipolar line search
+- [x] front_end
+- [x] bundle adjestment
+- [ ] epipolar line search
 
 ## Progress
+
+* 20-6-21 finish BA.
 
 * 19-10-10
 

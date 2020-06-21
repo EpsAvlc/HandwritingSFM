@@ -14,12 +14,22 @@
 #include <opencv2/xfeatures2d/nonfree.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 
+#include <g2o/core/optimization_algorithm_levenberg.h>
+#include <g2o/solvers/dense/linear_solver_dense.h>
+#include <g2o/core/block_solver.h>
+#include <g2o/core/sparse_optimizer.h>
+#include <g2o/types/sba/types_six_dof_expmap.h>
+#include <g2o/core/robust_kernel.h>
+#include <g2o/core/robust_kernel_impl.h>
+
 using namespace std;
 using namespace cv;
 
 HWSFM::HWSFM(Setting& s) : setting_(s), viewer_(s)
 {
+    /* Parameters Initialization*/
     K_ = setting_.K_.clone();
+
     viewer_.SetSFM(this);
     viewer_thread_ = thread(&Viewer::Run, &viewer_);
 }
@@ -38,25 +48,24 @@ void HWSFM::StartReconstruction()
         Mat img = imread(setting_.image_strs_[i]);
         addImages(img);
     }
-    if(frames_.size() < 3)
+    /*Inital the matches vector*/
+    all_matches_.resize(setting_.image_strs_.size());
+    for(auto& v: all_matches_)
     {
-        cerr << "[StartReconstruction@HWSFM]: too few image to reconstruction" << endl;
+        v.resize(setting_.image_strs_.size());
     }
 
-    initScale();
-    viewer_.SetUpdate();
+    if(frames_.size() < 3)
+    {
+        cerr << "[StartReconstruction@HWSFM]: too few image to reconstruction. At least 3 images." << endl;
+    }
+
+    all_matches_[0][1] = move(initScale());
 
     for(int i = 2; i < frames_.size(); i++)
     {
-        solvePnPAndTriangulation(frames_[0], frames_[i]);
-        viewer_.SetUpdate();
+        all_matches_[0][i] = move(solvePnPAndTriangulation(frames_[0], frames_[i]));
     }
-
-    // for(int i = frames_.size() / 2 + 1; i < frames_.size(); i++)
-    // {
-    //     solvePnPAndTriangulation(frames_[frames_.size() / 2], frames_[i]);
-    //     viewer_.SetUpdate();
-    // }
 
     for(int i = 1; i < frames_.size()-1; i++)
     {
@@ -66,12 +75,14 @@ void HWSFM::StartReconstruction()
             matchFeatures(frames_[i], frames_[j], matches);
             rejectWithF(frames_[i], frames_[j], matches);
             triangulation(frames_[i], frames_[j], matches);
-            viewer_.SetUpdate();
+            all_matches_[i][j] = move(matches);
         }
     }
+
+    bundleAdjustment();
 }
 
-void HWSFM::initScale()
+vector<DMatch> HWSFM::initScale()
 {
     vector<DMatch> good_matches;
     matchFeatures(frames_[0], frames_[1], good_matches);
@@ -101,14 +112,16 @@ void HWSFM::initScale()
     frames_[1].SetT(t);
 
     triangulation(frames_[0], frames_[1], good_matches);
+
+    return good_matches;
 }
 
-void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
+vector<DMatch> HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
 {
     if(rhs.IsComputed())
     {
         cerr << "[solvePnPAndTriangulation@HWSFM]: frame " << rhs.Id() << " has been computed." << endl;
-        return;
+        throw(runtime_error("[solvePnPAndTriangulation@HWSFM]"));
     }
     vector<DMatch> matches;
     matchFeatures(lhs, rhs, matches);
@@ -139,7 +152,7 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
     if(pts_3d.size() < 8)
     {
         cerr << "[solvePnpAndTriangulation@HWSFM]: too few point pairs betwean frame " << lhs.Id() << " and frame " << rhs.Id() << ", the pairs are " << pts_3d.size() << endl; 
-        return;
+        throw(runtime_error("[solvePnPAndTriangulation@HWSFM]"));
     }
     Mat rvec, t;
     Mat inliers;
@@ -176,12 +189,10 @@ void HWSFM::solvePnPAndTriangulation(Frame& lhs, Frame& rhs)
     //     cout << "reprojected_rhs : " << reprojected_rhs << endl;
     // }
 
-    cout << R << endl;
-    cout << t << endl;
-
     /**************/
 
     triangulation(lhs, rhs, matches);
+    return matches;
 }
 
 void HWSFM::matchFeatures(Frame& lhs, Frame& rhs, vector<DMatch>& good_matches)
@@ -222,9 +233,9 @@ void HWSFM::rejectWithF(Frame& lhs, Frame& rhs, vector<cv::DMatch>& matches)
     Mat F = findFundamentalMat(pts_lhs, pts_rhs, RANSAC, 3.0, 0.999, status);
     reduceVector(matches, status);
     // /* display matches */
-    lock_guard<mutex> lock(viewer_mutex_);
-    drawMatches(lhs.Img(), lhs.Keypoints(), rhs.Img(), rhs.Keypoints(), matches, cur_match_img_);
-    resize(cur_match_img_, cur_match_img_, Size(), 0.5, 0.5);
+    // lock_guard<mutex> lock(viewer_mutex_);
+    // drawMatches(lhs.Img(), lhs.Keypoints(), rhs.Img(), rhs.Keypoints(), matches, cur_match_img_);
+    // resize(cur_match_img_, cur_match_img_, Size(), 0.5, 0.5);
 }
 
 void HWSFM::triangulation(Frame& lhs, Frame& rhs, const vector<DMatch>& good_matches)
@@ -343,4 +354,112 @@ const vector<MapPoint> HWSFM::GetMappoints()
         res.push_back(it->second);
     }
     return res;
+}
+
+void HWSFM::bundleAdjustment()
+{
+    const int kFramesNum = frames_.size();
+
+    cout << "[bundleAdjustment@HWSFM]: Start bundleAdjustment" << endl;
+    /*Step 1: Construct a linear solver*/
+    typedef g2o::BlockSolver<g2o::BlockSolverTraits<6, 3>> BlockSolverType;
+    typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType> LinearSolverType;
+    auto solver = new g2o::OptimizationAlgorithmLevenberg(
+        g2o::make_unique<BlockSolverType>(g2o::make_unique<LinearSolverType>())
+    );
+    g2o::SparseOptimizer optimizer;
+    optimizer.setAlgorithm(solver);
+    optimizer.setVerbose(true);
+
+    /*Step 2: Add pose vertices*/
+    for(int i = 0; i < kFramesNum; i++)
+    {
+        g2o::VertexSE3Expmap* pose = new g2o::VertexSE3Expmap();
+        pose->setId(i);
+        g2o::SE3Quat estimated_pose;
+        Mat R_cv = frames_[i].GetR();
+        Eigen::Map<Eigen::Matrix3f> R_eigen_f((float*)R_cv.data);
+        Eigen::Matrix3d R_eigen_d = R_eigen_f.cast<double>();
+        Eigen::Quaterniond q_eigen(R_eigen_d);
+        estimated_pose.setRotation(q_eigen);
+
+        Mat t_cv = frames_[i].GetT();
+        Eigen::Map<Eigen::Vector3f> t_eigen_f((float*)t_cv.data);
+        Eigen::Vector3d t_eigen_d = t_eigen_f.cast<double>();
+        estimated_pose.setTranslation(t_eigen_d);
+
+        pose->setEstimate(estimated_pose);
+        if(i == 0)
+            pose->setFixed(true);
+
+        optimizer.addVertex(pose);
+    }
+
+    /*Step 3: Add point vertices*/
+    for(auto& mpt: mappoints_)
+    {
+        g2o::VertexSBAPointXYZ* pt = new g2o::VertexSBAPointXYZ();
+        pt->setId(mpt.first + kFramesNum);
+        Eigen::Vector3d pt_loc;
+        pt_loc.x() = mpt.second.x();
+        pt_loc.y() = mpt.second.y();
+        pt_loc.z() = mpt.second.z();
+        pt->setEstimate(Eigen::Vector3d(pt_loc));
+        pt->setMarginalized(true);
+        optimizer.addVertex(pt);
+    }
+
+    /*Step 4: Add CameraParameters*/
+    float focal_length = K_.at<float>(0, 0);
+    float cx = K_.at<float>(0, 2);
+    float cy = K_.at<float>(1, 2);
+    g2o::CameraParameters* cam_param = new g2o::CameraParameters(focal_length, Eigen::Vector2d(cx, cy), 0);
+    cam_param->setId(0);
+    optimizer.addParameter(cam_param);
+
+    /*Step 5: Add Edges*/
+    int edge_index = 1;
+    for(auto& mpt: mappoints_)
+    {
+        const int kMptIndex = mpt.first + kFramesNum;
+        unordered_map<int, int> observers = mpt.second.GetObservers();
+        for(auto observer:observers)
+        {
+            g2o::EdgeProjectXYZ2UV* edge = new g2o::EdgeProjectXYZ2UV(); 
+            edge->setId(edge_index);
+            edge->setVertex(0, dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(kMptIndex)));
+            edge->setVertex(1, dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(observer.first)));
+
+            Eigen::Vector2d pt;
+            KeyPoint kpt = frames_[observer.first].Keypoints()[observer.second];
+            pt.x() = kpt.pt.x;
+            pt.y() = kpt.pt.y;
+            edge->setMeasurement(pt);
+            edge->setInformation(Eigen::Matrix2d::Identity());
+            edge->setParameterId(0, 0);
+            edge->setRobustKernel(new g2o::RobustKernelHuber());
+
+            edge_index ++;
+
+            optimizer.addEdge(edge);
+        }
+    }
+
+    optimizer.initializeOptimization();
+    optimizer.optimize(200);
+
+    lock_guard<mutex> lock(viewer_mutex_);
+    for(int i = 0; i < kFramesNum; i++)
+    {
+        g2o::SE3Quat se3 = dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(i))->estimate();
+        frames_[i].SetPose(se3);
+    }
+    for(auto& mpt:mappoints_)
+    {
+        const int kMptIndex = mpt.first + kFramesNum;
+        Eigen::Vector3d pt_loc = dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(kMptIndex))->estimate();
+        mpt.second.x() = pt_loc.x();
+        mpt.second.y() = pt_loc.y();
+        mpt.second.z() = pt_loc.z();
+    }
 }
