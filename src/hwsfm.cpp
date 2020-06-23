@@ -30,6 +30,9 @@ using namespace std;
 using namespace cv;
 using namespace pcl;
 
+#define SAVE_POSE
+
+
 HWSFM::HWSFM(Setting& s) : setting_(s), viewer_(s)
 {
     /* Parameters Initialization*/
@@ -86,6 +89,16 @@ void HWSFM::StartReconstruction()
 
     statisticalOutlierRemoval();
     bundleAdjustment();
+#ifdef SAVE_POSE
+    FileStorage fs("/home/cm/Projects/handwritingSFM/poses/poses.xml", FileStorage::WRITE);
+    for(int i = 0; i < frames_.size(); i++)
+    {
+        string R_name = "R_" + to_string(i);
+        fs << R_name << frames_[i].GetR();
+        string t_name = "t_" + to_string(i);
+        fs << t_name << frames_[i].GetT();
+    }
+#endif
     statisticalOutlierRemoval();
 }
 

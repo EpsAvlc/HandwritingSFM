@@ -5,9 +5,10 @@ I prepare to write a simple sfm framework by myself. This framework include **bu
 ## Pipeline
 
 - [x] front_end
-- [ ] filtering
+- [x] filtering
 - [x] bundle adjestment
 - [ ] epipolar line search
+- [ ] depth estimator
 
 ## Progress
 
@@ -19,12 +20,10 @@ I prepare to write a simple sfm framework by myself. This framework include **bu
 
 * 19-10-10
 
-more points 
+  more points 
 
-![](resources/10-10.png)
-
-![](resources/10-10.gif)
+  ![](resources/10-10.gif)
 
 * 19-10-7
 
-![](resources/reconstruction.png)
+  ![](resources/reconstruction.png)
